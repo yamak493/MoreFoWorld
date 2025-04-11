@@ -40,7 +40,7 @@ public class PortalListener implements ListenerComponent {
     }
 
     @EventHandler
-public void onPortalReady(EntityPortalReadyEvent event) {
+    public void onPortalReady(EntityPortalReadyEvent event) {
     // ネザーポータルの場合はイベントをキャンセルして無効化
     if (event.getPortalType() == PortalType.NETHER) {
         debug.debug("Nether portal usage is disabled.");
@@ -132,7 +132,7 @@ public void onPortalReady(EntityPortalReadyEvent event) {
     }
 
     @EventHandler(ignoreCancelled = true)
-public void onEntityInsidePortal(final EntityInsideBlockEvent event) {
+    public void onEntityInsidePortal(final EntityInsideBlockEvent event) {
     Block block = event.getBlock();
     Material blockTypeInside = block.getType();
 
