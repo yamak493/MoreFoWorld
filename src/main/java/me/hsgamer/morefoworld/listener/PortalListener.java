@@ -40,15 +40,13 @@ public class PortalListener implements ListenerComponent {
     }
 
     @EventHandler
-    public void onPortalReady(EntityPortalReadyEvent event) {
-        if (event.getPortalType() != PortalType.NETHER) return;
-        debug.debug("Portal Ready: " + event.getEntity().getWorld());
-        debug.debug("Portal Type: " + event.getPortalType());
-        plugin.get(PortalConfig.class).getWorldFromNetherPortal(event.getEntity().getWorld()).ifPresent(world -> {
-            event.setTargetWorld(world);
-            debug.debug("Set Portal to " + world);
-        });
+public void onPortalReady(EntityPortalReadyEvent event) {
+    // ネザーポータルの場合はイベントをキャンセルして無効化
+    if (event.getPortalType() == PortalType.NETHER) {
+        debug.debug("Nether portal usage is disabled.");
+        event.setCancelled(true);
     }
+}
 
     private CompletableFuture<Void> constructEndPlatform(Location location) {
         return CompletableFuture.runAsync(() -> {
@@ -134,72 +132,14 @@ public class PortalListener implements ListenerComponent {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onEntityInsidePortal(final EntityInsideBlockEvent event) {
-        Block block = event.getBlock();
-        Entity entity = event.getEntity();
-        Material blockTypeInside = block.getType();
-        Location from = entity.getLocation();
+public void onEntityInsidePortal(final EntityInsideBlockEvent event) {
+    Block block = event.getBlock();
+    Material blockTypeInside = block.getType();
 
-        if (portalTeleportCache.containsKey(entity.getUniqueId())) {
-            debug.debug("The entity is being teleported");
-            return;
-        }
-
-        Optional<World> toWorldOptional = switch (blockTypeInside) {
-            case NETHER_PORTAL -> plugin.get(PortalConfig.class).getWorldFromNetherPortal(from.getWorld());
-            case END_PORTAL -> plugin.get(PortalConfig.class).getWorldFromEndPortal(from.getWorld());
-            default -> Optional.empty();
-        };
-        if (toWorldOptional.isEmpty()) return;
-        World toWorld = toWorldOptional.get();
-
-        portalTeleportCache.put(entity.getUniqueId(), blockTypeInside);
-
+    // ネザーポータルの場合はイベントをキャンセルして無効化
+    if (blockTypeInside == Material.NETHER_PORTAL) {
+        debug.debug("Nether portal deactivation: Entity blocked from teleporting.");
         event.setCancelled(true);
-
-        entity.getScheduler().execute(plugin, () -> {
-            Block currentBlock = entity.getLocation().getBlock();
-            if (currentBlock.getType() != blockTypeInside) {
-                debug.debug("The entity is not in the portal");
-                portalTeleportCache.remove(entity.getUniqueId());
-                return;
-            }
-
-            World.Environment fromEnvironment = from.getWorld().getEnvironment();
-            World.Environment toEnvironment = toWorld.getEnvironment();
-            Location to;
-            if (toEnvironment == World.Environment.THE_END) {
-                to = toWorld.getSpawnLocation();
-            } else if (fromEnvironment == World.Environment.NORMAL && toEnvironment == World.Environment.NETHER) {
-                to = from.clone();
-                to.setWorld(toWorld);
-                to.setX(to.getX() / 8);
-                to.setZ(to.getZ() / 8);
-            } else if (fromEnvironment == World.Environment.NETHER && toEnvironment == World.Environment.NORMAL) {
-                to = from.clone();
-                to.setWorld(toWorld);
-                to.setX(to.getX() * 8);
-                to.setZ(to.getZ() * 8);
-            } else {
-                to = from.clone();
-                to.setWorld(toWorld);
-            }
-
-            switch (toEnvironment) {
-                case THE_END -> {
-                    constructEndPlatform(to)
-                            .thenCompose(aVoid -> teleport(entity, to, false))
-                            .thenRun(() -> debug.debug("Teleported to " + to));
-                }
-                case NETHER -> {
-                    constructNetherPortal(to)
-                            .thenCompose(aVoid -> teleport(entity, to, false))
-                            .thenRun(() -> debug.debug("Teleported to " + to));
-                }
-                default -> teleport(entity, to, false).thenRun(() -> debug.debug("Teleported to " + to));
-            }
-
-            portalTeleportCache.remove(entity.getUniqueId());
-        }, null, 1L);
     }
+}
 }
